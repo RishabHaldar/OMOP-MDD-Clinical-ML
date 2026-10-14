@@ -1,0 +1,32 @@
+# The ONLY columns allowed to enter a model. Anything else raises an error.
+predictors:
+  - age
+  - is_male
+  - leukocytes_median
+  - neutrophils_median
+  - lymphocytes_median
+  - monocytes_median
+  - eosinophils_median
+  - basophils_median
+  - platelets_median
+  - erythrocyte_width_median
+  - albumin_median
+  - glucose_median
+  - bmi_median
+  - triglycerides_median
+  - cholesterol_median
+  - hdl_median
+  - ldl_median
+  - hba1c_median
+
+# Columns that exist in the extracted dataset but must never be predictors.
+# Listed so that errors name them explicitly.
+non_predictors:
+  - person_id
+  - cohort
+  - label
+  - group
+  - index_date
+  - gender_concept_id
+  - n_measurements
+  - n_distinct_analytes

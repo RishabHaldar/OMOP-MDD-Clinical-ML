@@ -1,0 +1,43 @@
+# --- Restricted / real data: never commit ---
+*.csv
+*.tsv
+*.parquet
+*.feather
+*.xlsx
+*.duckdb
+*.db
+*.sqlite
+data/
+outputs/
+*_OMOP*
+*_OMP*
+*_imputed*
+*.ipynb
+.ipynb_checkpoints/
+
+# --- Credentials / connection config ---
+.env
+.env.*
+*.pem
+*.key
+.databrickscfg
+databricks.yml
+secrets/
+config/local*.yaml
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+build/
+dist/
+
+# --- OS / editors ---
+.DS_Store
+.idea/
+.vscode/

@@ -1,0 +1,23 @@
+# Parameters for the reconstructed cohort SQL and the evaluation.
+
+cohort:
+  # Age is calculated at the index date for BOTH cohorts:
+  #   cases:      index date = first recorded condition in the depressive_disorder set
+  #   comparison: index date = first recorded visit within an observation period
+  min_age: 20
+  max_age: 65
+  # Patients selected per cohort, ranked by total number of qualifying
+  # laboratory measurements (ties broken by person_id).
+  n_per_cohort: 100
+  # Laboratory window relative to the index date, in days. null = unbounded
+  # (all measurements within the person's observation period).
+  window_days_before_index: null
+  window_days_after_index: null
+
+evaluation:
+  # Patient-level stratified split. The original study used an 80/20 split;
+  # this demonstration uses 75/25.
+  test_size: 0.25
+  cv_folds: 5
+  bootstrap_resamples: 2000
+  decision_threshold: 0.5

@@ -1,0 +1,106 @@
+# Concept sets used by the reconstructed SQL in sql/.
+#
+# EVERY concept ID in this file is SYNTHETIC: it lies in the OMOP range reserved
+# for local concepts (>= 2,000,000,000) and exists only in the synthetic
+# vocabulary built by omop_mdd.synthetic. These IDs are placeholders, not
+# proposed mappings. Using the SQL on a real OMOP CDM requires documented
+# decisions about the real standard concepts (see sql/README.md).
+#
+# Exceptions: gender concepts 8507 (MALE) and 8532 (FEMALE) are the published
+# OMOP standard concepts, and unit_concept_id 0 is the OMOP convention for
+# "No matching concept".
+
+conditions:
+  # Case-defining concept set. Descendants are included via concept_ancestor.
+  depressive_disorder:
+    roots: [2000000100]
+  # A person with any of these (or their descendants) is excluded from the
+  # comparison cohort.
+  comparison_exclusion:
+    roots: [2000000100, 2000000110]
+
+gender:
+  male: 8507
+  female: 8532
+
+# Synthetic unit concepts. canonical = value_as_number * multiplier + offset.
+units:
+  "10^9/L": 2000002001
+  "/uL": 2000002002
+  "%": 2000002003
+  "g/dL": 2000002004
+  "g/L": 2000002005
+  "mg/dL": 2000002006
+  "mmol/L": 2000002007
+  "kg/m2": 2000002008
+  "mmol/mol": 2000002009
+
+# One concept set per analyte. Each analyte has a canonical unit and, where
+# relevant, one alternate compatible unit with a published conversion. Rows in
+# any other unit (including unit_concept_id 0) are excluded by the SQL.
+labs:
+  leukocytes:
+    concept_id: 2000001001
+    canonical_unit: "10^9/L"
+    alternate_unit: {unit: "/uL", multiplier: 0.001, offset: 0.0}
+  neutrophils:
+    concept_id: 2000001002
+    canonical_unit: "10^9/L"
+    alternate_unit: {unit: "/uL", multiplier: 0.001, offset: 0.0}
+  lymphocytes:
+    concept_id: 2000001003
+    canonical_unit: "10^9/L"
+    alternate_unit: {unit: "/uL", multiplier: 0.001, offset: 0.0}
+  monocytes:
+    concept_id: 2000001004
+    canonical_unit: "10^9/L"
+    alternate_unit: {unit: "/uL", multiplier: 0.001, offset: 0.0}
+  eosinophils:
+    concept_id: 2000001005
+    canonical_unit: "10^9/L"
+    alternate_unit: {unit: "/uL", multiplier: 0.001, offset: 0.0}
+  basophils:
+    concept_id: 2000001006
+    canonical_unit: "10^9/L"
+    alternate_unit: {unit: "/uL", multiplier: 0.001, offset: 0.0}
+  platelets:
+    concept_id: 2000001007
+    canonical_unit: "10^9/L"
+    alternate_unit: {unit: "/uL", multiplier: 0.001, offset: 0.0}
+  erythrocyte_width:
+    concept_id: 2000001008
+    canonical_unit: "%"
+    alternate_unit: null
+  albumin:
+    concept_id: 2000001009
+    canonical_unit: "g/dL"
+    alternate_unit: {unit: "g/L", multiplier: 0.1, offset: 0.0}
+  glucose:
+    concept_id: 2000001010
+    canonical_unit: "mg/dL"
+    alternate_unit: {unit: "mmol/L", multiplier: 18.016, offset: 0.0}
+  bmi:
+    concept_id: 2000001011
+    canonical_unit: "kg/m2"
+    alternate_unit: null
+  triglycerides:
+    concept_id: 2000001012
+    canonical_unit: "mg/dL"
+    alternate_unit: {unit: "mmol/L", multiplier: 88.57, offset: 0.0}
+  cholesterol:
+    concept_id: 2000001013
+    canonical_unit: "mg/dL"
+    alternate_unit: {unit: "mmol/L", multiplier: 38.67, offset: 0.0}
+  hdl:
+    concept_id: 2000001014
+    canonical_unit: "mg/dL"
+    alternate_unit: {unit: "mmol/L", multiplier: 38.67, offset: 0.0}
+  ldl:
+    concept_id: 2000001015
+    canonical_unit: "mg/dL"
+    alternate_unit: {unit: "mmol/L", multiplier: 38.67, offset: 0.0}
+  hba1c:
+    concept_id: 2000001016
+    canonical_unit: "%"
+    # NGSP (%) = 0.09148 * IFCC (mmol/mol) + 2.152
+    alternate_unit: {unit: "mmol/mol", multiplier: 0.09148, offset: 2.152}

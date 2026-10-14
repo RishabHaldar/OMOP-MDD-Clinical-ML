@@ -1,7 +1,7 @@
 # Parameters for the reconstructed cohort SQL and the evaluation.
 
 cohort:
-  # Age is calculated at the index date for BOTH cohorts:
+  # Age = completed years at the index date, for BOTH cohorts (inclusive bounds):
   #   cases:      index date = first recorded condition in the depressive_disorder set
   #   comparison: index date = first recorded visit within an observation period
   min_age: 20

@@ -124,6 +124,11 @@ def importance(
 ) -> pd.DataFrame:
     """Model-specific importance plus permutation importance on the test set."""
     names = list(X_test.columns)
+    # Coefficients and gains are indexed by the transformed columns; check they
+    # are the same 18 predictors in the same order before labelling them.
+    transformed = list(fitted[:-1].get_feature_names_out())
+    if transformed != names:
+        raise ValueError(f"Transformed feature order differs: {transformed}")
     model = fitted.named_steps["model"]
     out = pd.DataFrame({"feature": names})
     if hasattr(model, "coef_"):

@@ -7,7 +7,7 @@
 -- Case cohort: persons with at least one condition in the `depressive_disorder`
 -- concept set (including descendants), within an observation period.
 --   index date = first qualifying condition_start_date
---   age        = age at index date (same rule as the comparison cohort)
+--   age        = completed years at index date (same rule as the comparison cohort)
 --
 -- Inputs prepared by omop_mdd.extract:
 --   analysis_params(min_age, max_age, ...)
@@ -40,11 +40,18 @@ with_age AS (
         f.person_id,
         f.index_date,
         p.gender_concept_id,
-        date_diff(
-            'day',
-            make_date(p.year_of_birth, p.month_of_birth, p.day_of_birth),
-            f.index_date
-        ) / 365.25 AS age_at_index
+        -- Age in completed years at the index date: year difference, minus
+        -- one if the birthday has not yet been reached in the index year.
+        (year(f.index_date) - p.year_of_birth)
+        - CASE
+            WHEN month(f.index_date) < p.month_of_birth
+                OR (
+                    month(f.index_date) = p.month_of_birth
+                    AND day(f.index_date) < p.day_of_birth
+                )
+            THEN 1
+            ELSE 0
+        END AS age_at_index
     FROM first_dx AS f
     JOIN person AS p
         ON p.person_id = f.person_id

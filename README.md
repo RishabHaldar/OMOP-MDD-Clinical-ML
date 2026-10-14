@@ -9,6 +9,12 @@ separately. Only the technical sections below were drafted here.
 
 > **All data in this repository is synthetic.** The repository contains no patient data, no institutional SQL, and no results from the historical Washington University study.
 
+**Scope of the demonstration:**
+
+- **Retrospective classification, not prediction.** By default, laboratory medians use every measurement in the observation period, including measurements taken after the index date. This is retrospective case-control classification, not prospective prediction of depression onset.
+- **Minimal tables.** The generated database has minimal OMOP-shaped tables with only selected columns. It is not a complete or validated OMOP CDM installation.
+- **Programmed signal.** The synthetic case/control difference is deliberately programmed into glucose, HbA1c, BMI, HDL and leukocyte values. Feature-importance results reflect that design and do not establish biological associations.
+
 ## Repository layout
 
 ```
@@ -56,7 +62,7 @@ black --check .                        # formatting
 
 - Stratified **75/25** patient-level train/test split with a fixed seed. The historical study used 80/20.
 - Predictors restricted to an explicit 18-column allowlist: age, sex and 16 laboratory medians. Identifiers, cohort labels and completeness counts are rejected.
-- One median imputer, fitted on training rows only, inside a scikit-learn Pipeline. Logistic regression also standardizes.
+- Identical imputation for both models, fitted on training rows only inside a scikit-learn Pipeline: most frequent value for `is_male`, median for the other 17 predictors. Logistic regression also standardizes.
 - 5-fold stratified cross-validation on the training set only.
 - One held-out evaluation per model:
   - AUROC with a bootstrap 95% CI

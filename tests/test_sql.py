@@ -13,15 +13,16 @@ from omop_mdd.synthetic import DEPRESSION_DESCENDANTS, _vocabulary
 N = config.analysis()["cohort"]["n_per_cohort"]
 
 
-def _age_at(index_dates: pd.Series, person: pd.DataFrame) -> pd.Series:
-    birth = pd.to_datetime(
-        dict(
-            year=person["year_of_birth"],
-            month=person["month_of_birth"],
-            day=person["day_of_birth"],
-        )
+def _completed_years(index_dates: pd.Series, person: pd.DataFrame) -> pd.Series:
+    """Independent Python implementation of age in completed years."""
+    idx = pd.to_datetime(index_dates).reset_index(drop=True)
+    person = person.reset_index(drop=True)
+    years = idx.dt.year - person["year_of_birth"]
+    before_birthday = (idx.dt.month < person["month_of_birth"]) | (
+        (idx.dt.month == person["month_of_birth"])
+        & (idx.dt.day < person["day_of_birth"])
     )
-    return (pd.to_datetime(index_dates) - birth).dt.days / 365.25
+    return years - before_birthday.astype(int)
 
 
 # --- Full synthetic population ------------------------------------------------
@@ -52,8 +53,8 @@ def test_same_age_rule_and_bounds_in_both_cohorts(con, tables):
             .loc[cohort["person_id"]]
             .reset_index()
         )
-        expected = _age_at(cohort["index_date"], person)
-        np.testing.assert_allclose(cohort["age_at_index"], expected, rtol=0, atol=1e-9)
+        expected = _completed_years(cohort["index_date"], person)
+        np.testing.assert_array_equal(cohort["age_at_index"].to_numpy(), expected)
 
 
 def test_case_index_is_first_qualifying_diagnosis(con, tables):
@@ -251,6 +252,81 @@ def test_both_cohorts_use_age_at_index():
     out = _run_minimal(_minimal_tables())
     assert out.loc[1, "cohort"] == "case"
     assert out.loc[2, "cohort"] == "comparison"
-    # Both born 1980-01-01, both indexed 2020-01-01.
-    assert out.loc[1, "age"] == pytest.approx(out.loc[2, "age"])
-    assert out.loc[1, "age"] == pytest.approx(14610 / 365.25)
+    # Both born 1980-01-01, both indexed 2020-01-01: 40 completed years.
+    assert out.loc[1, "age"] == out.loc[2, "age"] == 40
+
+
+# --- Age eligibility boundaries ------------------------------------------------
+
+# (birth date, index date, expected completed years, eligible for 20-65)
+AGE_BOUNDARIES = {
+    "65y11m": ("1954-02-15", "2020-01-15", 65, True),
+    "day_before_66th_birthday": ("1954-01-16", "2020-01-15", 65, True),
+    "66th_birthday": ("1954-01-15", "2020-01-15", 66, False),
+    "20th_birthday": ("2000-01-15", "2020-01-15", 20, True),
+    "day_before_20th_birthday": ("2000-01-16", "2020-01-15", 19, False),
+}
+
+
+def _boundary_tables(is_case: bool) -> dict[str, pd.DataFrame]:
+    """One person per boundary scenario, all in the same cohort, each with a
+    single visit (and, for cases, a qualifying diagnosis) on the index date."""
+    rows = list(AGE_BOUNDARIES.values())
+    ids = list(range(1, len(rows) + 1))
+    birth = pd.to_datetime([r[0] for r in rows])
+    index = pd.to_datetime([r[1] for r in rows])
+    tables = _minimal_tables()
+    tables["person"] = pd.DataFrame(
+        {
+            "person_id": ids,
+            "gender_concept_id": 8532,
+            "year_of_birth": birth.year,
+            "month_of_birth": birth.month,
+            "day_of_birth": birth.day,
+        }
+    )
+    tables["observation_period"] = pd.DataFrame(
+        {
+            "observation_period_id": ids,
+            "person_id": ids,
+            "observation_period_start_date": index - pd.Timedelta(days=30),
+            "observation_period_end_date": index + pd.Timedelta(days=30),
+        }
+    )
+    tables["visit_occurrence"] = pd.DataFrame(
+        {
+            "visit_occurrence_id": ids,
+            "person_id": ids,
+            "visit_start_date": index,
+            "visit_end_date": index,
+        }
+    )
+    tables["condition_occurrence"] = pd.DataFrame(
+        {
+            "condition_occurrence_id": ids,
+            "person_id": ids,
+            "condition_concept_id": DEPRESSION_DESCENDANTS[0],
+            "condition_start_date": index,
+        }
+    ).iloc[: len(ids) if is_case else 0]
+    tables["measurement"] = tables["measurement"].iloc[:0]
+    return tables
+
+
+@pytest.mark.parametrize("cohort", ["case", "comparison"])
+def test_age_boundaries_use_completed_years(cohort):
+    tables = _boundary_tables(is_case=cohort == "case")
+    con = build_database(tables)
+    run_sql(con)
+    table = "case_cohort" if cohort == "case" else "comparison_cohort"
+    got = con.execute(f"SELECT person_id, age_at_index FROM {table}").df()
+    con.close()
+    got = got.set_index("person_id")["age_at_index"]
+    for pid, (name, (_, _, age, eligible)) in enumerate(
+        AGE_BOUNDARIES.items(), start=1
+    ):
+        if eligible:
+            assert pid in got.index, f"{name} should be included"
+            assert got[pid] == age, name
+        else:
+            assert pid not in got.index, f"{name} should be excluded"

@@ -43,7 +43,7 @@ A conda environment works the same way: create it with Python 3.13, then run the
 
 ## Pipeline
 
-1. `omop_mdd.synthetic` generates OMOP-format tables: person, observation_period, visit_occurrence, condition_occurrence, measurement, concept, concept_ancestor.
+1. `omop_mdd.synthetic` generates minimal OMOP-shaped tables: person, observation_period, visit_occurrence, condition_occurrence, measurement, concept, concept_ancestor. Each table has only the columns the SQL uses. It is **not** a complete or validated OMOP CDM installation.
 2. `omop_mdd.extract` loads them into an in-memory DuckDB database and runs `sql/01`–`05`.
 3. `omop_mdd.data` checks that person IDs are unique, cohorts don't overlap, and cohort sizes match. Labels come from the SQL `cohort` column.
 4. `omop_mdd.features` restricts the data to the 18-predictor allowlist (`config/features.yaml`). An `AllowlistGuard` step re-checks the columns inside every Pipeline fit and predict.
@@ -51,7 +51,11 @@ A conda environment works the same way: create it with Python 3.13, then run the
    - Stratified 75/25 patient-level split, seed-fixed.
    - 5-fold stratified cross-validation on the training set only.
    - One evaluation on the held-out set.
-6. Both models share the same preprocessing, inside the Pipeline: a median `SimpleImputer` fitted on training rows only. Logistic regression adds `StandardScaler`.
+6. Both models share identical preprocessing inside the Pipeline, fitted on training rows only and without labels:
+   - `is_male`: most-frequent imputation, so imputed values stay 0 or 1 (ties resolve to 0).
+   - the other 17 predictors: median imputation.
+
+   The output keeps the original 18 predictors in allowlist order. Logistic regression adds `StandardScaler`.
 
 ## Outputs (`outputs/`, git-ignored)
 
@@ -67,10 +71,10 @@ A conda environment works the same way: create it with Python 3.13, then run the
 | File | What it checks |
 |---|---|
 | `test_synthetic.py` | Determinism; synthetic concept IDs; with no signal, every non-condition table is identical whichever persons are cases |
-| `test_sql.py` | The SQL runs; cohort sizes and no overlap; the same age-at-index rule in both cohorts; index-date definitions; measurement-count selection; unit conversion and exclusion; unknown gender → missing; lab window |
+| `test_sql.py` | The SQL runs; cohort sizes and no overlap; age in completed years at index, the same in both cohorts; age-boundary cases (65 years 11 months included; 66th birthday excluded; 20th birthday included; day before excluded); index-date definitions; measurement-count selection; unit conversion and exclusion; unknown gender → missing; lab window |
 | `test_labels.py` | Label counts; labels match the SQL cohort and the generator's ground truth; duplicate, overlapping, unknown or mis-sized cohorts are rejected |
 | `test_leakage.py` | The feature matrix equals the allowlist; `group`, `label`, `person_id`, `n_measurements` or any unknown column makes fit or predict fail |
-| `test_preprocessing.py` | The split is patient-level; imputer statistics equal training-set medians (not pooled); preprocessing is unchanged when labels are shuffled; the imputer is refitted inside each CV fold |
+| `test_preprocessing.py` | The split is patient-level; imputation values equal training-set medians and the training-set mode for `is_male` (not pooled values); `is_male` is never imputed as 0.5; both models use identical preprocessing and keep the 18 predictors in order; preprocessing is unchanged when labels are shuffled; the imputer is refitted inside each CV fold |
 | `test_determinism.py` | Same seed → identical results; different seed → different results |
 | `test_outputs.py` | Files written; metrics, predictions and importance schemas |
 
@@ -78,7 +82,10 @@ The tests do not assert any particular AUROC. The no-signal behaviour is checked
 
 ## Known limitations
 
-- **Synthetic data only.** Distributions are illustrative textbook-style reference intervals. Missingness comes from arbitrary panel-ordering probabilities. The case/control signal is an artificial shift. Metrics from this repository describe the pipeline on synthetic data and say nothing about depression or about the historical study.
+- **Synthetic data only.** Distributions are illustrative textbook-style reference intervals. Missingness comes from arbitrary panel-ordering probabilities. Metrics from this repository describe the pipeline on synthetic data and say nothing about depression or about the historical study.
+- **The signal is programmed in.** By default (`--signal 0.5`), the generator deliberately shifts glucose, HbA1c, BMI, HDL and leukocyte values for cases. The models recover that shift, so the feature-importance results reflect how the data were generated. They do not establish any biological association.
+- **Retrospective classification, not prediction.** The default laboratory window is unbounded (`window_days_before_index` and `window_days_after_index` are `null`). It therefore includes measurements taken **after** the index date. The demonstration classifies cohort membership retrospectively and is not a prospective model of depression onset. A prediction design would need a window that ends at or before the index date.
+- **Minimal OMOP-shaped tables.** The synthetic database has only selected columns of seven OMOP tables, enough for the SQL. It is not a complete or validated OMOP CDM installation, and the SQL has not been run against one.
 - **The original study cannot be reproduced from this repository.** The original Databricks SQL and observation windows are unavailable, and the institutional data is not included.
 - **SQL dialect.** The queries run in DuckDB. Databricks equivalents are listed in `sql/README.md` but have not been executed.
 - **Small held-out set.** With 50 test patients, held-out metrics vary noticeably with the seed. The bootstrap confidence interval reflects this.

@@ -7,7 +7,7 @@
 -- period and NO condition record (at any time) in the `comparison_exclusion`
 -- concept set, including descendants.
 --   index date = first visit_start_date within an observation period
---   age        = age at index date (same rule as the case cohort)
+--   age        = completed years at index date (same rule as the case cohort)
 --
 -- The exclusion concept set is an open methodological decision (which
 -- diagnoses count as "depression-related"). See sql/README.md.
@@ -44,11 +44,18 @@ with_age AS (
         f.person_id,
         f.index_date,
         p.gender_concept_id,
-        date_diff(
-            'day',
-            make_date(p.year_of_birth, p.month_of_birth, p.day_of_birth),
-            f.index_date
-        ) / 365.25 AS age_at_index
+        -- Age in completed years at the index date: year difference, minus
+        -- one if the birthday has not yet been reached in the index year.
+        (year(f.index_date) - p.year_of_birth)
+        - CASE
+            WHEN month(f.index_date) < p.month_of_birth
+                OR (
+                    month(f.index_date) = p.month_of_birth
+                    AND day(f.index_date) < p.day_of_birth
+                )
+            THEN 1
+            ELSE 0
+        END AS age_at_index
     FROM first_visit AS f
     JOIN person AS p
         ON p.person_id = f.person_id
